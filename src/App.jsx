@@ -63,7 +63,7 @@ function App() {
         setPassword('');
       } else {
         setStatus('error');
-        setErrorMessage('No transactions found in the PDF. Make sure it\'s an HDFC bank statement.');
+        setErrorMessage('No records found in the PDF. Make sure it\'s a valid source document.');
       }
     } catch (err) {
       if (err.needsPassword) {
@@ -74,7 +74,7 @@ function App() {
       } else {
         console.error('PDF parsing error:', err);
         setStatus('error');
-        setErrorMessage(err.message || 'Failed to parse PDF. Check if the file is a valid HDFC statement.');
+        setErrorMessage(err.message || 'Failed to parse PDF. Check if the file is a valid source document.');
       }
     }
   }, []);
@@ -141,7 +141,7 @@ function App() {
       setSelectedRows(selected);
       setStatus(result.transactions.length > 0 ? 'success' : 'error');
       if (result.transactions.length === 0) {
-        setErrorMessage('No valid transactions found. Please ensure you pasted the full HDFC statement text.');
+        setErrorMessage('No valid records found. Please ensure you pasted the full source text.');
       }
     } catch (err) {
       console.error(err);
@@ -174,9 +174,9 @@ function App() {
         header: ['Date', 'Description', 'Withdrawal', 'Deposit']
       });
       const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, 'Statement');
+      XLSX.utils.book_append_sheet(wb, ws, 'Data');
 
-      const filename = `HDFC_GoGSTBill_${new Date().toISOString().split('T')[0]}.xlsx`;
+      const filename = `Export_${new Date().toISOString().split('T')[0]}.xlsx`;
       XLSX.writeFile(wb, filename);
     } catch (error) {
       console.error('Error generating Excel:', error);
@@ -228,8 +228,8 @@ function App() {
             <FileSpreadsheet size={32} />
           </div>
           <div>
-            <h1>SRR BankLedger</h1>
-            <p className="subtitle">HDFC Statement → GoGSTBill Excel</p>
+            <h1>DocFlow</h1>
+            <p className="subtitle">Import → Transform → Export</p>
           </div>
         </div>
 
@@ -290,7 +290,7 @@ function App() {
                         <Upload size={32} />
                       </div>
                       <span className="dropzone-label">
-                        Drop your HDFC PDF statement here
+                        Drop your source PDF here
                       </span>
                       <span className="dropzone-hint">or click to browse</span>
                     </div>
@@ -307,12 +307,12 @@ function App() {
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem', color: 'var(--text-muted)' }}>
                   <ClipboardPaste size={18} />
-                  <span style={{ fontSize: '0.875rem', fontWeight: 500 }}>Paste your HDFC Text Statement below:</span>
+                  <span style={{ fontSize: '0.875rem', fontWeight: 500 }}>Paste source text below:</span>
                 </div>
                 
                 <textarea 
                   className="input-area"
-                  placeholder="Paste HDFC bank statement text here..."
+                  placeholder="Paste source text here..."
                   value={inputText}
                   onChange={(e) => setInputText(e.target.value)}
                 />
@@ -320,7 +320,7 @@ function App() {
                 <div style={{ marginTop: '1.5rem', display: 'flex', gap: '1rem' }}>
                   <button className="btn btn-primary" onClick={handleProcessText} disabled={!inputText}>
                     <RefreshCw size={20} className={status === 'processing' ? 'spin' : ''} />
-                    Process Statement
+                    Process
                   </button>
                 </div>
               </motion.div>
@@ -434,7 +434,7 @@ function App() {
                 <div style={{ display: 'flex', gap: '0.75rem' }}>
                   <button className="btn btn-success" onClick={downloadExcel} disabled={selectedCount === 0}>
                     <Download size={18} />
-                    Download GoGSTBill Excel ({selectedCount})
+                    Download Excel ({selectedCount})
                   </button>
                   <button className="btn btn-ghost" onClick={handleReset}>
                     <RefreshCw size={18} />

@@ -1,6 +1,6 @@
 /**
- * Parses HDFC Bank statement text (from PDF extraction or copy-paste)
- * into a structured array of transactions for GoGSTBill import.
+ * Parses source document text (from PDF extraction or copy-paste)
+ * into a structured array of records for export.
  */
 export const parseHDFCStatement = (text) => {
   const lines = text.split('\n');
@@ -215,7 +215,7 @@ const cleanDescription = (desc) => {
 };
 
 /**
- * Formats DD/MM/YY to DD-MMM-YY (GoGSTBill format).
+ * Formats DD/MM/YY to DD-MMM-YY.
  */
 const formatDate = (dateStr) => {
   if (!dateStr) return '';
