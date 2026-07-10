@@ -498,4 +498,60 @@ tr:hover td {
     flex: 1;
     justify-content: center;
   }
+
+  .balance-bar {
+    flex-direction: column;
+  }
+}
+
+/* Balance Bar */
+.balance-bar {
+  display: flex;
+  gap: 1rem;
+  margin-top: 2rem;
+}
+
+.balance-card {
+  flex: 1;
+  padding: 1.25rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.balance-label {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.balance-amount {
+  font-size: 1.5rem;
+  font-weight: 700;
+  font-family: 'Courier New', monospace;
+  background: linear-gradient(135deg, #818cf8, #c084fc);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Checkbox */
+.row-checkbox {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--primary);
+  cursor: pointer;
+}
+
+/* Excluded row */
+.row-excluded td {
+  opacity: 0.35;
+  text-decoration: line-through;
+  text-decoration-color: rgba(255, 255, 255, 0.2);
+}
+
+.row-excluded td:first-child {
+  opacity: 1;
+  text-decoration: none;
 }

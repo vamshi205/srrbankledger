@@ -22,11 +22,14 @@ import { motion, AnimatePresence } from 'framer-motion';
 function App() {
   const [inputText, setInputText] = useState('');
   const [transactions, setTransactions] = useState([]);
+  const [selectedRows, setSelectedRows] = useState({}); // { index: true/false }
   const [status, setStatus] = useState('idle'); // idle, processing, success, error
   const [activeTab, setActiveTab] = useState('pdf'); // pdf or text
   const [dragOver, setDragOver] = useState(false);
   const [fileName, setFileName] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+  const [openingBalance, setOpeningBalance] = useState(null);
+  const [closingBalance, setClosingBalance] = useState(null);
   
   // Password modal state
   const [showPasswordModal, setShowPasswordModal] = useState(false);
@@ -44,10 +47,16 @@ function App() {
     try {
       const buffer = await file.arrayBuffer();
       const text = await extractTextFromPDF(buffer, pwd);
-      const data = parseHDFCStatement(text);
+      const result = parseHDFCStatement(text);
       
-      if (data.length > 0) {
-        setTransactions(data);
+      if (result.transactions.length > 0) {
+        setTransactions(result.transactions);
+        setOpeningBalance(result.openingBalance);
+        setClosingBalance(result.closingBalance);
+        // Select all rows by default
+        const selected = {};
+        result.transactions.forEach((_, i) => { selected[i] = true; });
+        setSelectedRows(selected);
         setStatus('success');
         setShowPasswordModal(false);
         setPendingPdfFile(null);
@@ -122,10 +131,16 @@ function App() {
     setErrorMessage('');
     
     try {
-      const data = parseHDFCStatement(inputText);
-      setTransactions(data);
-      setStatus(data.length > 0 ? 'success' : 'error');
-      if (data.length === 0) {
+      const result = parseHDFCStatement(inputText);
+      setTransactions(result.transactions);
+      setOpeningBalance(result.openingBalance);
+      setClosingBalance(result.closingBalance);
+      // Select all rows by default
+      const selected = {};
+      result.transactions.forEach((_, i) => { selected[i] = true; });
+      setSelectedRows(selected);
+      setStatus(result.transactions.length > 0 ? 'success' : 'error');
+      if (result.transactions.length === 0) {
         setErrorMessage('No valid transactions found. Please ensure you pasted the full HDFC statement text.');
       }
     } catch (err) {
@@ -135,13 +150,28 @@ function App() {
     }
   };
 
-  // Download Excel
+  // Download Excel — only selected rows, ref merged into description, no ref column
   const downloadExcel = () => {
-    if (transactions.length === 0) return;
+    const selectedTxs = transactions
+      .filter((_, idx) => selectedRows[idx])
+      .map(tx => {
+        let desc = tx.Description || '';
+        if (tx['Reference No']) {
+          desc += ` Ref: ${tx['Reference No']}`;
+        }
+        return {
+          Date: tx.Date,
+          Description: desc,
+          Withdrawal: tx.Withdrawal,
+          Deposit: tx.Deposit,
+        };
+      });
+
+    if (selectedTxs.length === 0) return;
 
     try {
-      const ws = XLSX.utils.json_to_sheet(transactions, {
-        header: ['Date', 'Description', 'Reference No', 'Withdrawal', 'Deposit']
+      const ws = XLSX.utils.json_to_sheet(selectedTxs, {
+        header: ['Date', 'Description', 'Withdrawal', 'Deposit']
       });
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, 'Statement');
@@ -154,18 +184,36 @@ function App() {
     }
   };
 
+  // Toggle a single row
+  const toggleRow = (idx) => {
+    setSelectedRows(prev => ({ ...prev, [idx]: !prev[idx] }));
+  };
+
+  // Toggle all rows
+  const toggleAll = () => {
+    const allSelected = transactions.every((_, i) => selectedRows[i]);
+    const updated = {};
+    transactions.forEach((_, i) => { updated[i] = !allSelected; });
+    setSelectedRows(updated);
+  };
+
   // Reset everything
   const handleReset = () => {
     setInputText('');
     setTransactions([]);
+    setSelectedRows({});
     setStatus('idle');
     setFileName('');
     setErrorMessage('');
+    setOpeningBalance(null);
+    setClosingBalance(null);
     setPassword('');
     setPendingPdfFile(null);
     setShowPasswordModal(false);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
+
+  const selectedCount = transactions.filter((_, i) => selectedRows[i]).length;
 
   return (
     <div className="container">
@@ -352,23 +400,41 @@ function App() {
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
             >
+              {/* Balance Bar */}
+              {(openingBalance !== null || closingBalance !== null) && (
+                <div className="balance-bar">
+                  {openingBalance !== null && (
+                    <div className="balance-card glass">
+                      <span className="balance-label">Opening Balance</span>
+                      <span className="balance-amount">₹{openingBalance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                    </div>
+                  )}
+                  {closingBalance !== null && (
+                    <div className="balance-card glass">
+                      <span className="balance-label">Closing Balance</span>
+                      <span className="balance-amount">₹{closingBalance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Download Bar */}
               <div className="download-bar glass">
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                   <CheckCircle2 size={22} color="var(--success)" />
                   <div>
                     <div style={{ fontWeight: 600 }}>
-                      {transactions.length} Transaction{transactions.length !== 1 ? 's' : ''} Parsed
+                      {selectedCount} of {transactions.length} Selected
                     </div>
                     <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                      Ready for GoGSTBill import
+                      Uncheck transactions to exclude from Excel
                     </div>
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: '0.75rem' }}>
-                  <button className="btn btn-success" onClick={downloadExcel}>
+                  <button className="btn btn-success" onClick={downloadExcel} disabled={selectedCount === 0}>
                     <Download size={18} />
-                    Download GoGSTBill Excel
+                    Download GoGSTBill Excel ({selectedCount})
                   </button>
                   <button className="btn btn-ghost" onClick={handleReset}>
                     <RefreshCw size={18} />
@@ -385,10 +451,10 @@ function App() {
                   </h3>
                   <div className="summary-pills">
                     <span className="pill pill-credit">
-                      ↓ ₹{transactions.reduce((sum, tx) => sum + (tx.Deposit || 0), 0).toLocaleString('en-IN')}
+                      ↓ ₹{transactions.filter((_, i) => selectedRows[i]).reduce((sum, tx) => sum + (tx.Deposit || 0), 0).toLocaleString('en-IN')}
                     </span>
                     <span className="pill pill-debit">
-                      ↑ ₹{transactions.reduce((sum, tx) => sum + (tx.Withdrawal || 0), 0).toLocaleString('en-IN')}
+                      ↑ ₹{transactions.filter((_, i) => selectedRows[i]).reduce((sum, tx) => sum + (tx.Withdrawal || 0), 0).toLocaleString('en-IN')}
                     </span>
                   </div>
                 </div>
@@ -396,6 +462,14 @@ function App() {
                 <table>
                   <thead>
                     <tr>
+                      <th style={{ width: '40px' }}>
+                        <input 
+                          type="checkbox" 
+                          className="row-checkbox"
+                          checked={transactions.length > 0 && transactions.every((_, i) => selectedRows[i])}
+                          onChange={toggleAll}
+                        />
+                      </th>
                       <th>Date</th>
                       <th>Description</th>
                       <th>Ref No</th>
@@ -405,7 +479,15 @@ function App() {
                   </thead>
                   <tbody>
                     {transactions.map((tx, idx) => (
-                      <tr key={idx}>
+                      <tr key={idx} className={selectedRows[idx] ? '' : 'row-excluded'}>
+                        <td style={{ width: '40px' }}>
+                          <input 
+                            type="checkbox" 
+                            className="row-checkbox"
+                            checked={!!selectedRows[idx]}
+                            onChange={() => toggleRow(idx)}
+                          />
+                        </td>
                         <td style={{ color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{tx.Date}</td>
                         <td style={{ maxWidth: '400px', fontSize: '0.75rem' }}>{tx.Description}</td>
                         <td style={{ fontSize: '0.75rem', fontFamily: 'monospace' }}>{tx['Reference No']}</td>

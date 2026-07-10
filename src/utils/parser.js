@@ -6,6 +6,8 @@ export const parseHDFCStatement = (text) => {
   const lines = text.split('\n');
   const transactions = [];
   let currentTx = null;
+  let openingBalance = null;
+  let closingBalance = null;
 
   // Date regex: DD/MM/YY at start of line
   const dateRegex = /^\s*(\d{2}\/\d{2}\/\d{2})\s+/;
@@ -14,12 +16,26 @@ export const parseHDFCStatement = (text) => {
     const line = lines[i];
     if (!line.trim()) continue;
 
-    // Stop at statement summary
+    // Extract balances from statement summary section
     if (line.includes('STATEMENTSUMMARY') || line.includes('STATEMENT SUMMARY') || 
         line.includes('--- End Of Statement ---')) {
       if (currentTx) {
         transactions.push(currentTx);
         currentTx = null;
+      }
+      // Look ahead for the balance line
+      for (let j = i + 1; j < Math.min(i + 5, lines.length); j++) {
+        const balLine = lines[j];
+        if (balLine && (balLine.includes('OpeningBalance') || balLine.includes('Opening Balance'))) {
+          continue; // This is the header line
+        }
+        // The balance values line contains opening bal, dr count, cr count, debits, credits, closing bal
+        const balAmounts = balLine?.match(/(\d{1,3}(?:,\d{2,3})*\.\d{2})/g);
+        if (balAmounts && balAmounts.length >= 2) {
+          openingBalance = parseFloat(balAmounts[0].replace(/,/g, ''));
+          closingBalance = parseFloat(balAmounts[balAmounts.length - 1].replace(/,/g, ''));
+          break;
+        }
       }
       break;
     }
@@ -139,7 +155,7 @@ export const parseHDFCStatement = (text) => {
     tx.Description = cleanDescription(tx.Description);
   }
 
-  return transactions;
+  return { transactions, openingBalance, closingBalance };
 };
 
 /**
